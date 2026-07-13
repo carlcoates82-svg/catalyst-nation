@@ -160,11 +160,16 @@ export default async function DashboardPage() {
 function Shell({ children }: { children: React.ReactNode }) {
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
-      <div className="mb-10 flex items-center gap-3">
-        <Image src="/brand/mark-catalyst.svg" alt="" width={28} height={28} />
-        <span className="text-sm font-medium tracking-wide text-ash">
-          CATALYST NATION
-        </span>
+      <div className="mb-10 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Image src="/brand/mark-catalyst.svg" alt="" width={28} height={28} />
+          <span className="text-sm font-medium tracking-wide text-ash">
+            CATALYST NATION
+          </span>
+        </div>
+        <Link href="/account" className="text-xs text-ash hover:text-off-white">
+          Account
+        </Link>
       </div>
       {children}
     </main>

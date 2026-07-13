@@ -72,6 +72,10 @@ password blank to reuse an existing account), except this grants full
 portfolio-wide access rather than scoping them to one venture. Only give
 this to people who should see every venture.
 
+Whoever invites them should tell them to change that temp password on
+first login — **Account** link (top-right of the dashboard or a venture
+page) → Change password.
+
 ## Develop
 
 ```bash
