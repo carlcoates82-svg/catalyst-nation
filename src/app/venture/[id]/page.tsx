@@ -9,6 +9,7 @@ import {
   recordValidationAction,
   addRiskAction,
   inviteCeoAction,
+  advanceStageAction,
 } from "@/lib/actions";
 import { inputClass, submitClass } from "@/lib/ui";
 
@@ -192,7 +193,7 @@ export default async function VenturePage({
         ) : (
           <Empty text="None recorded." />
         )}
-        <form action={addRiskAction} className="mt-4 flex gap-2">
+        <form action={addRiskAction} className="mt-4 grid grid-cols-[auto_auto_1fr_auto] gap-2">
           <input type="hidden" name="venture_id" value={ventureId} />
           <select name="severity" className={inputClass} defaultValue="medium">
             <option value="low">Low</option>
@@ -204,12 +205,7 @@ export default async function VenturePage({
             <option value="medium">Medium</option>
             <option value="high">High</option>
           </select>
-          <input
-            name="description"
-            required
-            placeholder="Risk description"
-            className={`${inputClass} flex-1`}
-          />
+          <input name="description" required placeholder="Risk description" className={inputClass} />
           <button type="submit" className={submitClass}>
             Add risk
           </button>
@@ -233,7 +229,7 @@ export default async function VenturePage({
         ) : (
           <Empty text="No validation evidence recorded." />
         )}
-        <form action={recordValidationAction} className="mt-4 flex gap-2">
+        <form action={recordValidationAction} className="mt-4 grid grid-cols-[auto_1fr_auto_auto] gap-2">
           <input type="hidden" name="venture_id" value={ventureId} />
           <select name="kind" className={inputClass} defaultValue="interview">
             <option value="interview">Interview</option>
@@ -242,7 +238,7 @@ export default async function VenturePage({
             <option value="competitor">Competitor</option>
             <option value="other">Other</option>
           </select>
-          <input name="note" required placeholder="Evidence / insight" className={`${inputClass} flex-1`} />
+          <input name="note" required placeholder="Evidence / insight" className={inputClass} />
           <input
             name="willingness_to_pay"
             type="number"
@@ -271,6 +267,27 @@ export default async function VenturePage({
         ) : (
           <Empty text="None recorded." />
         )}
+        {profile.is_studio_admin && v.status !== "killed" && (
+          <form
+            action={advanceStageAction}
+            className="mt-4 grid grid-cols-[auto_1fr_auto] gap-2"
+          >
+            <input type="hidden" name="venture_id" value={ventureId} />
+            <select name="decision" className={inputClass} defaultValue="proceed">
+              <option value="proceed">Proceed</option>
+              <option value="hold">Hold</option>
+              <option value="kill">Kill</option>
+            </select>
+            <input
+              name="rationale"
+              placeholder="Rationale (recommended, for the audit trail)"
+              className={inputClass}
+            />
+            <button type="submit" className={submitClass}>
+              Record gate decision
+            </button>
+          </form>
+        )}
       </Section>
 
       {profile.is_studio_admin && (
@@ -290,20 +307,23 @@ export default async function VenturePage({
           ) : (
             <Empty text="No one linked to this venture yet." />
           )}
-          <form action={inviteCeoAction} className="flex gap-2">
+          <form
+            action={inviteCeoAction}
+            className="grid grid-cols-[1fr_auto_auto] gap-2"
+          >
             <input type="hidden" name="venture_id" value={ventureId} />
             <input
               name="email"
               type="email"
               required
               placeholder="ceo@theirventure.com"
-              className={`${inputClass} flex-1`}
+              className={inputClass}
             />
             <input
               name="password"
               type="text"
               placeholder="Temp password (new accounts only)"
-              className="w-56 flex-none rounded-md border border-slate bg-graphite px-3 py-2 text-sm text-off-white placeholder:text-ash focus:border-emerald focus:outline-none"
+              className={inputClass}
             />
             <button type="submit" className={submitClass}>
               Invite as CEO

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { nextStage, type Stage, type VentureStatus } from "@/lib/domain";
 
 /** Server actions are callable directly, not just from the forms that
  * render them — so admin-only actions must re-check here, not just hide
@@ -141,6 +142,54 @@ export async function inviteCeoAction(formData: FormData) {
     .from("venture_members")
     .upsert({ venture_id, user_id: userId, role: "ceo" }, { onConflict: "venture_id,user_id" });
   if (linkError) throw new Error(linkError.message);
+
+  revalidatePath(`/venture/${venture_id}`);
+}
+
+/** Mirrors Catalyst OS's advance_stage: proceed moves one step along the
+ * Protocol (reaching Scale marks the venture launched), kill marks it
+ * killed, hold just logs the gate with no venture change. Admin-only. */
+export async function advanceStageAction(formData: FormData) {
+  const supabase = await requireStudioAdmin();
+  const venture_id = requireVentureId(formData);
+  const decision = String(formData.get("decision") ?? "");
+  if (!["proceed", "hold", "kill"].includes(decision)) {
+    throw new Error("Invalid decision");
+  }
+  const rationale = (formData.get("rationale") as string) || null;
+
+  const { data: venture, error: fetchError } = await supabase
+    .from("ventures")
+    .select("stage, status")
+    .eq("id", venture_id)
+    .single();
+  if (fetchError) throw new Error(fetchError.message);
+
+  const { error: gateError } = await supabase.from("gates").insert({
+    venture_id,
+    stage: venture.stage,
+    decision,
+    rationale,
+  });
+  if (gateError) throw new Error(gateError.message);
+
+  if (decision === "kill") {
+    const { error } = await supabase
+      .from("ventures")
+      .update({ status: "killed" satisfies VentureStatus })
+      .eq("id", venture_id);
+    if (error) throw new Error(error.message);
+  } else if (decision === "proceed") {
+    const next = nextStage(venture.stage as Stage);
+    if (next) {
+      const status: VentureStatus = next === "Scale" ? "launched" : venture.status;
+      const { error } = await supabase
+        .from("ventures")
+        .update({ stage: next, status })
+        .eq("id", venture_id);
+      if (error) throw new Error(error.message);
+    }
+  }
 
   revalidatePath(`/venture/${venture_id}`);
 }

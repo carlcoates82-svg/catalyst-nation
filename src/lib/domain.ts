@@ -13,6 +13,13 @@ export const STAGES = [
 ] as const;
 export type Stage = (typeof STAGES)[number];
 
+/** Returns the next stage after `stage`, or null if already at Scale. */
+export function nextStage(stage: Stage): Stage | null {
+  const i = STAGES.indexOf(stage);
+  if (i < 0 || i >= STAGES.length - 1) return null;
+  return STAGES[i + 1];
+}
+
 export const VENTURE_STATUSES = ["active", "paused", "killed", "launched"] as const;
 export type VentureStatus = (typeof VENTURE_STATUSES)[number];
 
