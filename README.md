@@ -86,9 +86,12 @@ CEO or admin can:
 2. Create a **goal** for the venture.
 3. Create a **task** under that goal, assigned to an agent, with specific
    instructions.
-4. Click **Run** — this calls the Claude API for real (one single
-   completion, no tools/browsing, no multi-step loop) and records the
-   result, token usage, and an estimated cost against the agent's budget.
+4. Click **Run** — this calls the Claude API for real, with Anthropic's
+   hosted web search tool enabled (capped at 5 searches per run), and
+   records the result, any sources found, token usage, and an estimated
+   cost (including ~$0.01/search) against the agent's budget. Still no
+   autonomous multi-step planning — one manual Run click per task, and the
+   model decides how many of its search budget to use within that one run.
 5. Click **Save as validation evidence** on a completed task to explicitly
    push its output into the venture's Validation Evidence — this is the
    deliberate human-in-the-loop sync back to the venture record; nothing

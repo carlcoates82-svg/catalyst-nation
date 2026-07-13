@@ -5,7 +5,12 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { nextStage, type Stage, type VentureStatus } from "@/lib/domain";
-import { createAnthropicClient, estimateCost, AGENT_MODEL } from "@/lib/anthropic";
+import {
+  createAnthropicClient,
+  estimateCost,
+  AGENT_MODEL,
+  MAX_WEB_SEARCHES_PER_TASK,
+} from "@/lib/anthropic";
 
 /** Server actions are callable directly, not just from the forms that
  * render them — so admin-only actions must re-check here, not just hide
@@ -378,22 +383,44 @@ export async function runTaskAction(formData: FormData) {
   try {
     const response = await client.messages.create({
       model: AGENT_MODEL,
-      max_tokens: 2048,
+      max_tokens: 4096,
       system: agent.system_prompt,
       messages: [{ role: "user", content: task.instructions }],
+      tools: [
+        {
+          type: "web_search_20260318",
+          name: "web_search",
+          max_uses: MAX_WEB_SEARCHES_PER_TASK,
+        },
+      ],
     });
 
     const resultText = response.content
       .map((block) => (block.type === "text" ? block.text : ""))
       .filter(Boolean)
       .join("\n");
+
+    const sources = response.content
+      .filter((block) => block.type === "web_search_tool_result")
+      .flatMap((block) =>
+        Array.isArray(block.content)
+          ? block.content.map((r) => ({ title: r.title, url: r.url }))
+          : []
+      );
+
     const inputTokens = response.usage.input_tokens;
     const outputTokens = response.usage.output_tokens;
-    const cost = estimateCost(inputTokens, outputTokens);
+    const webSearches = response.usage.server_tool_use?.web_search_requests ?? 0;
+    const cost = estimateCost(inputTokens, outputTokens, webSearches);
 
     await supabase
       .from("tasks")
-      .update({ status: "done", result: resultText, completed_at: new Date().toISOString() })
+      .update({
+        status: "done",
+        result: resultText,
+        sources: sources.length ? sources : null,
+        completed_at: new Date().toISOString(),
+      })
       .eq("id", task_id);
 
     await supabase.from("activity_log").insert({
@@ -404,6 +431,7 @@ export async function runTaskAction(formData: FormData) {
       input_tokens: inputTokens,
       output_tokens: outputTokens,
       estimated_cost: cost,
+      detail: webSearches ? `${webSearches} web search${webSearches === 1 ? "" : "es"}` : null,
     });
 
     await supabase

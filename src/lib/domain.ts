@@ -154,6 +154,7 @@ export interface AgentTask {
   instructions: string;
   status: "todo" | "running" | "done" | "failed";
   result: string | null;
+  sources: { title: string; url: string }[] | null;
   created_at: string;
   completed_at: string | null;
 }

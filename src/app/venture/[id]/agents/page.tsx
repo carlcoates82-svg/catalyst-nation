@@ -183,6 +183,25 @@ export default async function AgentsPage({
                       {t.result}
                     </p>
                   )}
+                  {t.sources && t.sources.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs uppercase tracking-wide text-ash">Sources</p>
+                      <ul className="mt-1 space-y-1">
+                        {t.sources.map((s, i) => (
+                          <li key={i} className="truncate text-xs">
+                            <a
+                              href={s.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-emerald hover:underline"
+                            >
+                              {s.title || s.url}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <div className="mt-3 flex gap-2">
                     {t.status !== "running" && (
                       <form action={runTaskAction}>
@@ -267,7 +286,8 @@ export default async function AgentsPage({
                     <span className="text-ash">
                       {" "}
                       ({e.input_tokens}+{e.output_tokens} tokens, ~
-                      {money(e.estimated_cost ?? 0, "EUR")})
+                      {money(e.estimated_cost ?? 0, "EUR")}
+                      {e.detail ? `, ${e.detail}` : ""})
                     </span>
                   ) : (
                     <span className="text-bronze"> — {e.detail}</span>
