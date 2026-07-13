@@ -4,7 +4,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import type { Venture } from "@/lib/domain";
-import { createVentureAction } from "@/lib/actions";
+import { createVentureAction, inviteAdminAction } from "@/lib/actions";
 import { inputClass, submitClass } from "@/lib/ui";
 
 export default async function DashboardPage() {
@@ -44,6 +44,12 @@ export default async function DashboardPage() {
     byStage[v.stage] = (byStage[v.stage] ?? 0) + 1;
     byStatus[v.status] = (byStatus[v.status] ?? 0) + 1;
   }
+
+  const { data: admins } = await supabase
+    .from("profiles")
+    .select("email, full_name")
+    .eq("is_studio_admin", true);
+  const adminList = admins ?? [];
 
   return (
     <Shell>
@@ -105,6 +111,45 @@ export default async function DashboardPage() {
           <input name="founder_ceo" placeholder="Founder CEO (optional)" className={inputClass} />
           <button type="submit" className={`${submitClass} col-span-2`}>
             Create venture
+          </button>
+        </form>
+      </section>
+
+      <section className="mt-10">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ash">
+          Studio team
+        </h2>
+        {adminList.length ? (
+          <ul className="mb-4 space-y-2">
+            {adminList.map((a, i) => (
+              <li
+                key={i}
+                className="rounded-md border border-slate bg-charcoal px-4 py-3 text-sm text-off-white"
+              >
+                {a.email ?? "(no email on file)"}{" "}
+                <span className="text-xs uppercase tracking-wide text-ash">admin</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mb-4 text-sm text-ash">No studio admins on file.</p>
+        )}
+        <form action={inviteAdminAction} className="grid grid-cols-[1fr_auto_auto] gap-2">
+          <input
+            name="email"
+            type="email"
+            required
+            placeholder="cofounder@example.com"
+            className={inputClass}
+          />
+          <input
+            name="password"
+            type="text"
+            placeholder="Temp password (new accounts only)"
+            className={inputClass}
+          />
+          <button type="submit" className={submitClass}>
+            Invite as Studio Admin
           </button>
         </form>
       </section>

@@ -5,9 +5,10 @@ owners sign in and see their own venture; studio admins see the whole
 portfolio. Next.js (App Router) + Supabase (Auth + Postgres + RLS).
 
 The other half is [Catalyst OS](../Desktop/the-ai-foundry/Catalyst%20Nation-os-mcp)
-(the MCP server Carl drives via Claude) — for now it still runs on its own
-local SQLite file. Repointing it at this same Supabase project is a later
-piece.
+(the MCP server Carl drives via Claude) — it reads and writes this same
+Supabase project via the service-role key, so a decision made through
+Claude and one made through this dashboard are both visible everywhere,
+immediately.
 
 Auth is **email + password**, not magic links — magic links turned out to be
 unreliable (single-use tokens dying before the user could click them, and
@@ -62,6 +63,14 @@ admins:
 
 They'll land straight on their venture next time they sign in, and can't see
 any other venture or the portfolio view.
+
+## Adding a co-founder as a studio admin
+
+Also in-app now — **Portfolio dashboard → Studio team → Invite as Studio
+Admin**. Same pattern as inviting a CEO (email + temp password, or leave the
+password blank to reuse an existing account), except this grants full
+portfolio-wide access rather than scoping them to one venture. Only give
+this to people who should see every venture.
 
 ## Develop
 

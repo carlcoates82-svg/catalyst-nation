@@ -146,6 +146,48 @@ export async function inviteCeoAction(formData: FormData) {
   revalidatePath(`/venture/${venture_id}`);
 }
 
+/** Grants studio-admin (full portfolio) access, creating the account first
+ * if this email doesn't have one yet. Uses the admin client throughout —
+ * there's no RLS UPDATE policy on profiles (deliberately, so a regular
+ * session can never self-grant admin), so this bypasses RLS the same way
+ * account creation already does. */
+export async function inviteAdminAction(formData: FormData) {
+  await requireStudioAdmin();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  if (!email) throw new Error("Email is required");
+
+  const admin = createAdminClient();
+
+  const { data: existingProfile, error: lookupError } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+  if (lookupError) throw new Error(lookupError.message);
+
+  let userId = existingProfile?.id as string | undefined;
+
+  if (!userId) {
+    if (!password) throw new Error("Password is required for a new account");
+    const { data: created, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+    if (error) throw new Error(error.message);
+    userId = created.user.id;
+  }
+
+  const { error: updateError } = await admin
+    .from("profiles")
+    .update({ is_studio_admin: true })
+    .eq("id", userId);
+  if (updateError) throw new Error(updateError.message);
+
+  revalidatePath("/dashboard");
+}
+
 /** Mirrors Catalyst OS's advance_stage: proceed moves one step along the
  * Protocol (reaching Scale marks the venture launched), kill marks it
  * killed, hold just logs the gate with no venture change. Admin-only. */
