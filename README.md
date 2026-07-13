@@ -102,6 +102,13 @@ one of Carl's other projects (`nixer-lead-agent`, `daft-ai-agent`, etc.) or
 generate a fresh one at console.anthropic.com. The cost estimate in
 `src/lib/anthropic.ts` is a rough approximation, not exact billing.
 
+## Deploy
+
+Pushes to `main` auto-deploy to production via the connected GitHub
+integration (Vercel project → GitHub App installed on
+`carlcoates82-svg/catalyst-nation`) — no manual `vercel deploy --prod`
+needed anymore.
+
 ## Develop
 
 ```bash
