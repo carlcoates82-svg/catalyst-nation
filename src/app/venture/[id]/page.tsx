@@ -3,6 +3,12 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { money, type Venture, type Budget, type Kpi, type Risk, type Gate, type Validation } from "@/lib/domain";
+import { recordKpiAction, recordSpendAction, recordValidationAction, addRiskAction } from "@/lib/actions";
+
+const inputClass =
+  "w-full rounded-md border border-slate bg-graphite px-3 py-2 text-sm text-off-white placeholder:text-ash focus:border-emerald focus:outline-none";
+const submitClass =
+  "rounded-md bg-emerald px-4 py-2 text-sm font-medium text-graphite transition hover:bg-emerald-deep";
 
 export default async function VenturePage({
   params,
@@ -92,6 +98,16 @@ export default async function VenturePage({
         ) : (
           <Empty text="No KPIs recorded yet." />
         )}
+        <form action={recordKpiAction} className="mt-4 grid grid-cols-3 gap-2">
+          <input type="hidden" name="venture_id" value={ventureId} />
+          <input name="arr" type="number" min="0" step="1" placeholder="ARR" className={inputClass} />
+          <input name="customers" type="number" min="0" step="1" placeholder="Customers" className={inputClass} />
+          <input name="pipeline" type="number" min="0" step="1" placeholder="Pipeline" className={inputClass} />
+          <input name="note" placeholder="Note (optional)" className={`${inputClass} col-span-2`} />
+          <button type="submit" className={submitClass}>
+            Record KPI
+          </button>
+        </form>
       </Section>
 
       <Section title="Budget">
@@ -116,6 +132,27 @@ export default async function VenturePage({
         ) : (
           <Empty text="No budgets set." />
         )}
+        <form action={recordSpendAction} className="mt-4 flex gap-2">
+          <input type="hidden" name="venture_id" value={ventureId} />
+          <select name="phase" className={inputClass} defaultValue="mvp">
+            <option value="validation">Validation</option>
+            <option value="mvp">MVP</option>
+            <option value="pilot">Pilot</option>
+            <option value="other">Other</option>
+          </select>
+          <input
+            name="amount"
+            type="number"
+            min="0"
+            step="1"
+            required
+            placeholder="Amount spent"
+            className={inputClass}
+          />
+          <button type="submit" className={submitClass}>
+            Record spend
+          </button>
+        </form>
       </Section>
 
       <Section title="Open risks">
@@ -136,6 +173,28 @@ export default async function VenturePage({
         ) : (
           <Empty text="None recorded." />
         )}
+        <form action={addRiskAction} className="mt-4 flex gap-2">
+          <input type="hidden" name="venture_id" value={ventureId} />
+          <select name="severity" className={inputClass} defaultValue="medium">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+          <select name="likelihood" className={inputClass} defaultValue="medium">
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+          <input
+            name="description"
+            required
+            placeholder="Risk description"
+            className={`${inputClass} flex-1`}
+          />
+          <button type="submit" className={submitClass}>
+            Add risk
+          </button>
+        </form>
       </Section>
 
       <Section title="Validation evidence">
@@ -155,6 +214,28 @@ export default async function VenturePage({
         ) : (
           <Empty text="No validation evidence recorded." />
         )}
+        <form action={recordValidationAction} className="mt-4 flex gap-2">
+          <input type="hidden" name="venture_id" value={ventureId} />
+          <select name="kind" className={inputClass} defaultValue="interview">
+            <option value="interview">Interview</option>
+            <option value="willingness-to-pay">Willingness to pay</option>
+            <option value="pilot-signal">Pilot signal</option>
+            <option value="competitor">Competitor</option>
+            <option value="other">Other</option>
+          </select>
+          <input name="note" required placeholder="Evidence / insight" className={`${inputClass} flex-1`} />
+          <input
+            name="willingness_to_pay"
+            type="number"
+            min="0"
+            step="1"
+            placeholder="WTP (optional)"
+            className={inputClass}
+          />
+          <button type="submit" className={submitClass}>
+            Add
+          </button>
+        </form>
       </Section>
 
       <Section title="Recent gate decisions">
