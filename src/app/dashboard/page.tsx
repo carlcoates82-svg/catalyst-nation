@@ -4,6 +4,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import type { Venture } from "@/lib/domain";
+import { createVentureAction } from "@/lib/actions";
+import { inputClass, submitClass } from "@/lib/ui";
 
 export default async function DashboardPage() {
   const profile = await requireProfile();
@@ -90,6 +92,22 @@ export default async function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      <section className="mt-10">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ash">
+          Create venture
+        </h2>
+        <form action={createVentureAction} className="grid grid-cols-2 gap-2">
+          <input name="name" required placeholder="Venture name" className={inputClass} />
+          <input name="sector" placeholder="Sector" className={inputClass} />
+          <input name="thesis" placeholder="Thesis (optional)" className={`${inputClass} col-span-2`} />
+          <input name="buyer" placeholder="Buyer / budget owner (optional)" className={inputClass} />
+          <input name="founder_ceo" placeholder="Founder CEO (optional)" className={inputClass} />
+          <button type="submit" className={`${submitClass} col-span-2`}>
+            Create venture
+          </button>
+        </form>
+      </section>
     </Shell>
   );
 }

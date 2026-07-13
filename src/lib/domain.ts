@@ -104,6 +104,7 @@ export interface Risk {
 export interface Profile {
   id: string;
   full_name: string | null;
+  email: string | null;
   is_studio_admin: boolean;
   created_at: string;
 }

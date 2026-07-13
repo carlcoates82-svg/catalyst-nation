@@ -2,6 +2,27 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+/** Server actions are callable directly, not just from the forms that
+ * render them — so admin-only actions must re-check here, not just hide
+ * the form in the UI. */
+async function requireStudioAdmin() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not signed in");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_studio_admin")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.is_studio_admin) throw new Error("Not authorized");
+
+  return supabase;
+}
 
 function requireVentureId(formData: FormData): number {
   const id = Number(formData.get("venture_id"));
@@ -63,6 +84,63 @@ export async function addRiskAction(formData: FormData) {
     status: "open",
   });
   if (error) throw new Error(error.message);
+
+  revalidatePath(`/venture/${venture_id}`);
+}
+
+export async function createVentureAction(formData: FormData) {
+  const supabase = await requireStudioAdmin();
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) throw new Error("Name is required");
+
+  const { error } = await supabase.from("ventures").insert({
+    name,
+    sector: (formData.get("sector") as string) || null,
+    thesis: (formData.get("thesis") as string) || null,
+    buyer: (formData.get("buyer") as string) || null,
+    founder_ceo: (formData.get("founder_ceo") as string) || null,
+  });
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/dashboard");
+}
+
+/** Links a CEO/business owner to a venture, creating their login if they
+ * don't already have one. Reuses an existing account (by email) if they're
+ * already a member of another venture. */
+export async function inviteCeoAction(formData: FormData) {
+  const supabase = await requireStudioAdmin();
+  const venture_id = requireVentureId(formData);
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  if (!email) throw new Error("Email is required");
+
+  const { data: existingProfile, error: lookupError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+  if (lookupError) throw new Error(lookupError.message);
+
+  let userId = existingProfile?.id as string | undefined;
+
+  if (!userId) {
+    if (!password) throw new Error("Password is required for a new account");
+    const admin = createAdminClient();
+    const { data: created, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    });
+    if (error) throw new Error(error.message);
+    userId = created.user.id;
+  }
+
+  const { error: linkError } = await supabase
+    .from("venture_members")
+    .upsert({ venture_id, user_id: userId, role: "ceo" }, { onConflict: "venture_id,user_id" });
+  if (linkError) throw new Error(linkError.message);
 
   revalidatePath(`/venture/${venture_id}`);
 }

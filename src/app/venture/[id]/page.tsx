@@ -3,19 +3,21 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
 import { money, type Venture, type Budget, type Kpi, type Risk, type Gate, type Validation } from "@/lib/domain";
-import { recordKpiAction, recordSpendAction, recordValidationAction, addRiskAction } from "@/lib/actions";
-
-const inputClass =
-  "w-full rounded-md border border-slate bg-graphite px-3 py-2 text-sm text-off-white placeholder:text-ash focus:border-emerald focus:outline-none";
-const submitClass =
-  "rounded-md bg-emerald px-4 py-2 text-sm font-medium text-graphite transition hover:bg-emerald-deep";
+import {
+  recordKpiAction,
+  recordSpendAction,
+  recordValidationAction,
+  addRiskAction,
+  inviteCeoAction,
+} from "@/lib/actions";
+import { inputClass, submitClass } from "@/lib/ui";
 
 export default async function VenturePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  await requireProfile();
+  const profile = await requireProfile();
   const { id } = await params;
   const ventureId = Number(id);
   const supabase = await createClient();
@@ -63,6 +65,23 @@ export default async function VenturePage({
   const gateList = (gates ?? []) as Gate[];
   const validationList = (validation ?? []) as Validation[];
   const latestKpi = kpiList[0];
+
+  let members: { role: string; email: string | null }[] = [];
+  if (profile.is_studio_admin) {
+    const { data: memberRows } = await supabase
+      .from("venture_members")
+      .select("role, user_id")
+      .eq("venture_id", ventureId);
+    const userIds = (memberRows ?? []).map((m) => m.user_id);
+    const { data: memberProfiles } = userIds.length
+      ? await supabase.from("profiles").select("id, email").in("id", userIds)
+      : { data: [] as { id: string; email: string | null }[] };
+    const emailById = new Map((memberProfiles ?? []).map((p) => [p.id, p.email]));
+    members = (memberRows ?? []).map((m) => ({
+      role: m.role,
+      email: emailById.get(m.user_id) ?? null,
+    }));
+  }
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-12">
@@ -253,6 +272,45 @@ export default async function VenturePage({
           <Empty text="None recorded." />
         )}
       </Section>
+
+      {profile.is_studio_admin && (
+        <Section title="Team">
+          {members.length ? (
+            <ul className="mb-4 space-y-2">
+              {members.map((m, i) => (
+                <li
+                  key={i}
+                  className="rounded-md border border-slate bg-charcoal px-4 py-3 text-sm text-off-white"
+                >
+                  {m.email ?? "(no email on file)"}{" "}
+                  <span className="text-xs uppercase tracking-wide text-ash">{m.role}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <Empty text="No one linked to this venture yet." />
+          )}
+          <form action={inviteCeoAction} className="flex gap-2">
+            <input type="hidden" name="venture_id" value={ventureId} />
+            <input
+              name="email"
+              type="email"
+              required
+              placeholder="ceo@theirventure.com"
+              className={`${inputClass} flex-1`}
+            />
+            <input
+              name="password"
+              type="text"
+              placeholder="Temp password (new accounts only)"
+              className="w-56 flex-none rounded-md border border-slate bg-graphite px-3 py-2 text-sm text-off-white placeholder:text-ash focus:border-emerald focus:outline-none"
+            />
+            <button type="submit" className={submitClass}>
+              Invite as CEO
+            </button>
+          </form>
+        </Section>
+      )}
     </main>
   );
 }

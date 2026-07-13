@@ -26,11 +26,10 @@ password auth avoids the whole email round-trip.
    cp .env.local.example .env.local
    ```
 
-3. **Run the migration.** Open the Supabase SQL editor and paste in, in
-   order:
-   - `supabase/migrations/0001_init.sql` — schema, RLS policies, the
-     auto-provision-profile trigger.
-   - `supabase/seed.sql` — one demo venture with budgets/KPI/risk/gate data.
+3. **Run the migrations, in order.** Open the Supabase SQL editor and paste
+   in each of `supabase/migrations/0001_init.sql`, `0002_venture_member_writes.sql`,
+   `0003_profiles_email.sql`, then `supabase/seed.sql` (one demo venture with
+   budgets/KPI/risk/gate data).
 
 4. **Create your own account** in Supabase Dashboard → **Authentication →
    Users → Add user → Create new user**. Enter your email, set a password,
@@ -48,20 +47,21 @@ password auth avoids the whole email round-trip.
    Sign in at `/login` with that email/password — you should see the full
    portfolio view instead of "not yet linked to a venture".
 
-## Adding a CEO / business owner
+## Adding a venture and a CEO / business owner
 
-1. Supabase Dashboard → **Authentication → Users → Add user → Create new
-   user** — set their email and a temporary password, tick **Auto Confirm
-   User**. Share the password with them out of band (WhatsApp, etc).
-2. Link them to their venture in the SQL editor:
+No SQL or Supabase dashboard needed — it's all in the app now, for studio
+admins:
 
-   ```sql
-   insert into public.venture_members (venture_id, user_id, role)
-   select 1, id, 'ceo' from auth.users where email = 'ceo@theirventure.com';
-   ```
+1. **Portfolio dashboard** → **Create venture** form — name, sector, thesis,
+   buyer, founder CEO.
+2. Open that venture's page → **Team** section → **Invite as CEO** — enter
+   their email and a temporary password (share it with them out of band,
+   e.g. WhatsApp). If that email already has an account (e.g. they run more
+   than one portfolio company), leave the password blank — it reuses their
+   existing login and just adds this venture to it.
 
-They'll land straight on `/venture/1` next time they sign in. A
-self-service invite flow (no manual SQL) is a later piece.
+They'll land straight on their venture next time they sign in, and can't see
+any other venture or the portfolio view.
 
 ## Develop
 
