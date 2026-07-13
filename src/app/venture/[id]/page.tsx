@@ -97,11 +97,16 @@ export default async function VenturePage({
         </Link>
       </div>
 
-      <div className="mb-1 flex items-center gap-3">
-        <h1 className="text-2xl font-semibold text-off-white">{v.name}</h1>
-        <span className="rounded-full border border-emerald/40 px-2.5 py-1 text-xs text-emerald">
-          {v.stage}
-        </span>
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-semibold text-off-white">{v.name}</h1>
+          <span className="rounded-full border border-emerald/40 px-2.5 py-1 text-xs text-emerald">
+            {v.stage}
+          </span>
+        </div>
+        <Link href={`/venture/${ventureId}/agents`} className="text-xs text-ash hover:text-off-white">
+          Agents →
+        </Link>
       </div>
       <p className="mb-8 text-sm text-ash">
         {v.sector ?? "—"} · {v.status}

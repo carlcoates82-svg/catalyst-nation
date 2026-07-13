@@ -123,6 +123,54 @@ export interface VentureMember {
   created_at: string;
 }
 
+export interface Agent {
+  id: number;
+  venture_id: number;
+  name: string;
+  role: string | null;
+  system_prompt: string;
+  budget_allocated: number;
+  budget_spent: number;
+  currency: string;
+  status: "active" | "paused";
+  created_at: string;
+}
+
+export interface Goal {
+  id: number;
+  venture_id: number;
+  title: string;
+  description: string | null;
+  status: "open" | "done" | "abandoned";
+  created_at: string;
+}
+
+export interface AgentTask {
+  id: number;
+  venture_id: number;
+  goal_id: number;
+  agent_id: number;
+  title: string;
+  instructions: string;
+  status: "todo" | "running" | "done" | "failed";
+  result: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface ActivityLogEntry {
+  id: number;
+  venture_id: number;
+  agent_id: number;
+  task_id: number | null;
+  event_type: "task_completed" | "task_failed";
+  input_tokens: number | null;
+  output_tokens: number | null;
+  estimated_cost: number | null;
+  detail: string | null;
+  created_at: string;
+}
+
 export function money(n: number, ccy = "EUR"): string {
   return new Intl.NumberFormat("en-IE", {
     style: "currency",

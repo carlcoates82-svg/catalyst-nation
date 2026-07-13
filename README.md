@@ -76,6 +76,29 @@ Whoever invites them should tell them to change that temp password on
 first login — **Account** link (top-right of the dashboard or a venture
 page) → Change password.
 
+## Paperclip — AI agents per venture
+
+Each venture has an **Agents** page (link from its dossier page) where a
+CEO or admin can:
+
+1. Create an **agent** — a name, role, and system prompt defining what it
+   does, plus an optional budget cap.
+2. Create a **goal** for the venture.
+3. Create a **task** under that goal, assigned to an agent, with specific
+   instructions.
+4. Click **Run** — this calls the Claude API for real (one single
+   completion, no tools/browsing, no multi-step loop) and records the
+   result, token usage, and an estimated cost against the agent's budget.
+5. Click **Save as validation evidence** on a completed task to explicitly
+   push its output into the venture's Validation Evidence — this is the
+   deliberate human-in-the-loop sync back to the venture record; nothing
+   flows back automatically.
+
+Needs `ANTHROPIC_API_KEY` set (see `.env.local.example`) — reuse a key from
+one of Carl's other projects (`nixer-lead-agent`, `daft-ai-agent`, etc.) or
+generate a fresh one at console.anthropic.com. The cost estimate in
+`src/lib/anthropic.ts` is a rough approximation, not exact billing.
+
 ## Develop
 
 ```bash
