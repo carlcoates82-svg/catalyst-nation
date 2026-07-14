@@ -1,18 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
-import {
-  money,
-  type Venture,
-  type Budget,
-  type Kpi,
-  type Risk,
-  type Gate,
-  type Validation,
-  type Agent,
-} from "@/lib/domain";
+import { getBoardPackData } from "@/lib/board-data";
+import { money } from "@/lib/domain";
 import { PrintButton } from "@/components/print-button";
 
 export default async function BoardPackPage({
@@ -23,54 +13,16 @@ export default async function BoardPackPage({
   await requireProfile();
   const { id } = await params;
   const ventureId = Number(id);
-  const supabase = await createClient();
 
-  const { data: venture } = await supabase
-    .from("ventures")
-    .select("*")
-    .eq("id", ventureId)
-    .single();
-  if (!venture) notFound();
-  const v = venture as Venture;
-
-  const [
-    { data: budgets },
-    { data: kpis },
-    { data: risks },
-    { data: gates },
-    { data: validation },
-    { data: agents },
-  ] = await Promise.all([
-    supabase.from("budgets").select("*").eq("venture_id", ventureId).order("phase"),
-    supabase
-      .from("kpis")
-      .select("*")
-      .eq("venture_id", ventureId)
-      .order("as_of", { ascending: false })
-      .order("id", { ascending: false })
-      .limit(6),
-    supabase.from("risks").select("*").eq("venture_id", ventureId).eq("status", "open"),
-    supabase
-      .from("gates")
-      .select("*")
-      .eq("venture_id", ventureId)
-      .order("id", { ascending: false })
-      .limit(10),
-    supabase
-      .from("validation")
-      .select("*")
-      .eq("venture_id", ventureId)
-      .order("id", { ascending: false })
-      .limit(10),
-    supabase.from("agents").select("*").eq("venture_id", ventureId),
-  ]);
-
-  const budgetList = (budgets ?? []) as Budget[];
-  const kpiList = (kpis ?? []) as Kpi[];
-  const riskList = (risks ?? []) as Risk[];
-  const gateList = (gates ?? []) as Gate[];
-  const validationList = (validation ?? []) as Validation[];
-  const agentList = (agents ?? []) as Agent[];
+  const {
+    venture: v,
+    budgets: budgetList,
+    kpis: kpiList,
+    risks: riskList,
+    gates: gateList,
+    validation: validationList,
+    agents: agentList,
+  } = await getBoardPackData(ventureId);
   const latestKpi = kpiList[0];
 
   const totalBudgetAllocated = budgetList.reduce((sum, b) => sum + b.allocated, 0);
@@ -100,7 +52,15 @@ export default async function BoardPackPage({
         <Link href={`/venture/${ventureId}`} className="text-xs text-ash hover:text-off-white">
           ← {v.name}
         </Link>
-        <PrintButton />
+        <div className="flex items-center gap-3">
+          <a
+            href={`/venture/${ventureId}/board/pdf`}
+            className="rounded-md border border-slate px-4 py-2 text-xs text-off-white hover:bg-slate"
+          >
+            Download PDF
+          </a>
+          <PrintButton />
+        </div>
       </div>
 
       <header className="mb-10 border-b border-slate pb-6 print:border-neutral-300">
