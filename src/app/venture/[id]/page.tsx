@@ -104,9 +104,14 @@ export default async function VenturePage({
             {v.stage}
           </span>
         </div>
-        <Link href={`/venture/${ventureId}/agents`} className="text-xs text-ash hover:text-off-white">
-          Agents →
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href={`/venture/${ventureId}/board`} className="text-xs text-ash hover:text-off-white">
+            Board pack →
+          </Link>
+          <Link href={`/venture/${ventureId}/agents`} className="text-xs text-ash hover:text-off-white">
+            Agents →
+          </Link>
+        </div>
       </div>
       <p className="mb-8 text-sm text-ash">
         {v.sector ?? "—"} · {v.status}
