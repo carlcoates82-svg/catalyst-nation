@@ -12,6 +12,7 @@ import {
 } from "@/lib/domain";
 import {
   createAgentAction,
+  deleteAgentAction,
   createGoalAction,
   createTaskAction,
   runTaskAction,
@@ -19,6 +20,7 @@ import {
   pushValidationFromTaskAction,
 } from "@/lib/actions";
 import { inputClass, submitClass } from "@/lib/ui";
+import { ConfirmSubmitButton } from "@/components/confirm-submit-button";
 
 // Bumped from 60s — a broad research task with several web searches can
 // take longer, and a killed function left a task permanently stuck in
@@ -99,10 +101,21 @@ export default async function AgentsPage({
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{a.name}</span>
-                    <span className={over ? "text-bronze" : "text-ash"}>
-                      {money(a.budget_spent, a.currency)} / {money(a.budget_allocated, a.currency)}
-                      {over ? " · over budget" : ""}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      <span className={over ? "text-bronze" : "text-ash"}>
+                        {money(a.budget_spent, a.currency)} / {money(a.budget_allocated, a.currency)}
+                        {over ? " · over budget" : ""}
+                      </span>
+                      <form action={deleteAgentAction}>
+                        <input type="hidden" name="venture_id" value={ventureId} />
+                        <input type="hidden" name="agent_id" value={a.id} />
+                        <ConfirmSubmitButton
+                          label="Delete"
+                          confirmLabel="Confirm delete?"
+                          className="text-xs text-ash hover:text-bronze"
+                        />
+                      </form>
+                    </div>
                   </div>
                   {a.role && <p className="mt-1 text-xs text-ash">{a.role}</p>}
                 </li>

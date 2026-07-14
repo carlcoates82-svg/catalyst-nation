@@ -320,6 +320,20 @@ export async function createAgentAction(formData: FormData) {
   revalidatePath(`/venture/${venture_id}/agents`);
 }
 
+/** Cascades to the agent's tasks and activity_log via the FK constraints
+ * in 0004_paperclip.sql — deleting an agent removes its full history. */
+export async function deleteAgentAction(formData: FormData) {
+  const venture_id = requireVentureId(formData);
+  const agent_id = Number(formData.get("agent_id"));
+  if (!agent_id) throw new Error("Invalid agent id");
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("agents").delete().eq("id", agent_id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/venture/${venture_id}/agents`);
+}
+
 export async function createGoalAction(formData: FormData) {
   const venture_id = requireVentureId(formData);
   const title = String(formData.get("title") ?? "").trim();
