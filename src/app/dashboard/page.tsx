@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { requireProfile } from "@/lib/auth";
-import type { Venture } from "@/lib/domain";
+import { money, type Venture, type Agent } from "@/lib/domain";
 import { createVentureAction, inviteAdminAction } from "@/lib/actions";
 import { inputClass, submitClass } from "@/lib/ui";
 
@@ -50,6 +50,24 @@ export default async function DashboardPage() {
     .select("email, full_name")
     .eq("is_studio_admin", true);
   const adminList = admins ?? [];
+
+  const { data: agents } = await supabase
+    .from("agents")
+    .select("venture_id, budget_allocated, budget_spent");
+  const agentList = (agents ?? []) as Pick<
+    Agent,
+    "venture_id" | "budget_allocated" | "budget_spent"
+  >[];
+  const spendByVenture = new Map<number, { allocated: number; spent: number; count: number }>();
+  for (const a of agentList) {
+    const entry = spendByVenture.get(a.venture_id) ?? { allocated: 0, spent: 0, count: 0 };
+    entry.allocated += a.budget_allocated;
+    entry.spent += a.budget_spent;
+    entry.count += 1;
+    spendByVenture.set(a.venture_id, entry);
+  }
+  const totalAgentSpend = agentList.reduce((sum, a) => sum + a.budget_spent, 0);
+  const totalAgentAllocated = agentList.reduce((sum, a) => sum + a.budget_allocated, 0);
 
   return (
     <Shell>
@@ -98,6 +116,53 @@ export default async function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      <section className="mt-10">
+        <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ash">
+          AI agent spend (Paperclip)
+        </h2>
+        {agentList.length ? (
+          <div className="space-y-2">
+            {list
+              .filter((v) => spendByVenture.has(v.id))
+              .map((v) => {
+                const s = spendByVenture.get(v.id)!;
+                const over = s.allocated > 0 && s.spent > s.allocated;
+                return (
+                  <div
+                    key={v.id}
+                    className="flex items-center justify-between rounded-md border border-slate bg-charcoal px-4 py-3 text-sm"
+                  >
+                    <span className="text-off-white">
+                      {v.name}{" "}
+                      <span className="text-xs text-ash">
+                        · {s.count} agent{s.count === 1 ? "" : "s"}
+                      </span>
+                    </span>
+                    <span className={over ? "text-bronze" : "text-ash"}>
+                      {money(s.spent)} / {money(s.allocated)}
+                      {over ? " · over budget" : ""}
+                    </span>
+                  </div>
+                );
+              })}
+            <div className="flex items-center justify-between rounded-md border border-slate bg-charcoal px-4 py-3 text-sm">
+              <span className="font-semibold text-off-white">Studio total</span>
+              <span
+                className={
+                  totalAgentAllocated > 0 && totalAgentSpend > totalAgentAllocated
+                    ? "text-bronze"
+                    : "text-ash"
+                }
+              >
+                {money(totalAgentSpend)} / {money(totalAgentAllocated)}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <p className="text-sm text-ash">No agents running yet.</p>
+        )}
+      </section>
 
       <section className="mt-10">
         <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ash">

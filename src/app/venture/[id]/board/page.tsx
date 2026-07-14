@@ -4,6 +4,7 @@ import { requireProfile } from "@/lib/auth";
 import { getBoardPackData } from "@/lib/board-data";
 import { money } from "@/lib/domain";
 import { PrintButton } from "@/components/print-button";
+import { KpiTrend } from "@/components/kpi-trend";
 
 export default async function BoardPackPage({
   params,
@@ -24,6 +25,7 @@ export default async function BoardPackPage({
     agents: agentList,
   } = await getBoardPackData(ventureId);
   const latestKpi = kpiList[0];
+  const kpiAsc = [...kpiList].reverse(); // oldest → newest for the trend charts
 
   const totalBudgetAllocated = budgetList.reduce((sum, b) => sum + b.allocated, 0);
   const totalBudgetSpent = budgetList.reduce((sum, b) => sum + b.spent, 0);
@@ -84,9 +86,21 @@ export default async function BoardPackPage({
         {latestKpi ? (
           <>
             <div className="mb-4 grid grid-cols-3 gap-4">
-              <Stat label="ARR" value={money(latestKpi.arr ?? 0)} />
-              <Stat label="Customers" value={String(latestKpi.customers ?? 0)} />
-              <Stat label="Pipeline" value={money(latestKpi.pipeline ?? 0)} />
+              <Stat
+                label="ARR"
+                value={money(latestKpi.arr ?? 0)}
+                trend={kpiAsc.map((k) => k.arr)}
+              />
+              <Stat
+                label="Customers"
+                value={String(latestKpi.customers ?? 0)}
+                trend={kpiAsc.map((k) => k.customers)}
+              />
+              <Stat
+                label="Pipeline"
+                value={money(latestKpi.pipeline ?? 0)}
+                trend={kpiAsc.map((k) => k.pipeline)}
+              />
             </div>
             {kpiList.length > 1 && (
               <table className="w-full text-left text-sm">
@@ -237,11 +251,24 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  trend,
+}: {
+  label: string;
+  value: string;
+  trend?: (number | null)[];
+}) {
   return (
     <div className="rounded-md border border-slate bg-charcoal px-4 py-3 print:border-neutral-300 print:bg-white">
       <p className="text-xs text-ash print:text-neutral-500">{label}</p>
       <p className="text-lg font-semibold text-off-white print:text-black">{value}</p>
+      {trend && (
+        <div className="text-emerald print:text-emerald-deep">
+          <KpiTrend values={trend} />
+        </div>
+      )}
     </div>
   );
 }

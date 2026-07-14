@@ -16,6 +16,8 @@ import {
   createGoalAction,
   createTaskAction,
   runTaskAction,
+  runGoalAction,
+  planGoalTasksAction,
   resetTaskAction,
   pushValidationFromTaskAction,
 } from "@/lib/actions";
@@ -153,16 +155,44 @@ export default async function AgentsPage({
       <Section title="Goals">
         {goalList.length ? (
           <ul className="mb-4 space-y-2">
-            {goalList.map((g) => (
-              <li
-                key={g.id}
-                className="rounded-md border border-slate bg-charcoal px-4 py-3 text-sm text-off-white"
-              >
-                <span className="font-medium">{g.title}</span>{" "}
-                <span className="text-xs uppercase tracking-wide text-ash">{g.status}</span>
-                {g.description && <p className="mt-1 text-xs text-ash">{g.description}</p>}
-              </li>
-            ))}
+            {goalList.map((g) => {
+              const queued = taskList.filter(
+                (t) => t.goal_id === g.id && t.status === "todo"
+              ).length;
+              return (
+                <li
+                  key={g.id}
+                  className="rounded-md border border-slate bg-charcoal px-4 py-3 text-sm text-off-white"
+                >
+                  <span className="font-medium">{g.title}</span>{" "}
+                  <span className="text-xs uppercase tracking-wide text-ash">{g.status}</span>
+                  {g.description && <p className="mt-1 text-xs text-ash">{g.description}</p>}
+                  {g.status === "open" && agentList.length > 0 && (
+                    <div className="mt-3 flex gap-2">
+                      <form action={planGoalTasksAction}>
+                        <input type="hidden" name="venture_id" value={ventureId} />
+                        <input type="hidden" name="goal_id" value={g.id} />
+                        <button
+                          type="submit"
+                          className="rounded-md border border-slate px-4 py-2 text-sm text-off-white hover:bg-slate"
+                        >
+                          Plan tasks
+                        </button>
+                      </form>
+                      {queued > 0 && (
+                        <form action={runGoalAction}>
+                          <input type="hidden" name="venture_id" value={ventureId} />
+                          <input type="hidden" name="goal_id" value={g.id} />
+                          <button type="submit" className={submitClass}>
+                            Run all queued ({queued})
+                          </button>
+                        </form>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <Empty text="No goals yet." />

@@ -237,10 +237,33 @@ export async function advanceStageAction(formData: FormData) {
         .update({ stage: next, status })
         .eq("id", venture_id);
       if (error) throw new Error(error.message);
+
+      // Catalyst OS → Paperclip handoff: the gate decision becomes the
+      // mission the venture's agent team works towards. Skipped if an
+      // open goal for this stage already exists (e.g. gate re-recorded).
+      const title = `Reach ${next}`;
+      const { data: existingGoal } = await supabase
+        .from("goals")
+        .select("id")
+        .eq("venture_id", venture_id)
+        .eq("title", title)
+        .eq("status", "open")
+        .maybeSingle();
+      if (!existingGoal) {
+        const { error: goalError } = await supabase.from("goals").insert({
+          venture_id,
+          title,
+          description: rationale
+            ? `Auto-created from the ${venture.stage} gate: ${rationale}`
+            : `Auto-created from the ${venture.stage} gate decision.`,
+        });
+        if (goalError) throw new Error(goalError.message);
+      }
     }
   }
 
   revalidatePath(`/venture/${venture_id}`);
+  revalidatePath(`/venture/${venture_id}/agents`);
 }
 
 /** Mirrors Catalyst OS's recordSpend: auto-creates a zero-allocation budget
@@ -381,34 +404,32 @@ export async function createTaskAction(formData: FormData) {
   revalidatePath(`/venture/${venture_id}/agents`);
 }
 
-/** The core Paperclip action: runs a task through its agent via a single
- * Claude completion (no tool use, no multi-turn loop — see plan notes).
- * Logs the run to activity_log and adds the estimated cost to the agent's
- * budget_spent, warning (not blocking) if that pushes it over budget. */
-export async function runTaskAction(formData: FormData) {
-  const venture_id = requireVentureId(formData);
-  const task_id = Number(formData.get("task_id"));
-  if (!task_id) throw new Error("Invalid task id");
-
-  const supabase = await createClient();
-
-  const { data: task, error: taskError } = await supabase
-    .from("tasks")
-    .select("*, agents(*)")
-    .eq("id", task_id)
-    .single();
-  if (taskError) throw new Error(taskError.message);
-  const agent = task.agents as { id: number; system_prompt: string; budget_spent: number };
-
-  await supabase.from("tasks").update({ status: "running" }).eq("id", task_id);
+/** Runs one task through its agent via a single Claude completion, with
+ * web search enabled. Updates task status, logs to activity_log, adds the
+ * estimated cost to the agent's budget_spent and syncs it into the
+ * venture's 'agents' budget burn. Returns whether the run succeeded plus
+ * the result text so chained runs can pass context forward. Never throws
+ * for a failed run — failure is recorded on the task instead. */
+async function executeTaskRun(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  venture_id: number,
+  task: { id: number; instructions: string },
+  agent: { id: number; system_prompt: string },
+  priorContext?: string
+): Promise<{ ok: boolean; resultText: string }> {
+  await supabase.from("tasks").update({ status: "running" }).eq("id", task.id);
 
   const client = createAnthropicClient();
   try {
+    const userMessage = priorContext
+      ? `Context from earlier tasks completed in this run:\n\n${priorContext}\n\n---\n\nYour task: ${task.instructions}`
+      : task.instructions;
+
     const response = await client.messages.create({
       model: AGENT_MODEL,
       max_tokens: 4096,
       system: agent.system_prompt,
-      messages: [{ role: "user", content: task.instructions }],
+      messages: [{ role: "user", content: userMessage }],
       tools: [
         {
           type: "web_search_20260318",
@@ -444,12 +465,12 @@ export async function runTaskAction(formData: FormData) {
         sources: sources.length ? sources : null,
         completed_at: new Date().toISOString(),
       })
-      .eq("id", task_id);
+      .eq("id", task.id);
 
     await supabase.from("activity_log").insert({
       venture_id,
       agent_id: agent.id,
-      task_id,
+      task_id: task.id,
       event_type: "task_completed",
       input_tokens: inputTokens,
       output_tokens: outputTokens,
@@ -457,9 +478,16 @@ export async function runTaskAction(formData: FormData) {
       detail: webSearches ? `${webSearches} web search${webSearches === 1 ? "" : "es"}` : null,
     });
 
+    // Re-read budget_spent rather than trusting a caller-supplied value —
+    // in a chained run the same agent may have spent since we loaded it.
+    const { data: freshAgent } = await supabase
+      .from("agents")
+      .select("budget_spent")
+      .eq("id", agent.id)
+      .single();
     await supabase
       .from("agents")
-      .update({ budget_spent: agent.budget_spent + cost })
+      .update({ budget_spent: (freshAgent?.budget_spent ?? 0) + cost })
       .eq("id", agent.id);
 
     // Paperclip → Catalyst OS sync: the run's cost also lands on the
@@ -468,19 +496,166 @@ export async function runTaskAction(formData: FormData) {
     if (cost > 0) {
       await addSpendToVentureBudget(supabase, venture_id, "agents", cost);
     }
+
+    return { ok: true, resultText };
   } catch (err) {
-    await supabase.from("tasks").update({ status: "failed" }).eq("id", task_id);
+    await supabase.from("tasks").update({ status: "failed" }).eq("id", task.id);
     await supabase.from("activity_log").insert({
       venture_id,
       agent_id: agent.id,
-      task_id,
+      task_id: task.id,
       event_type: "task_failed",
       detail: err instanceof Error ? err.message : String(err),
     });
+    return { ok: false, resultText: "" };
   }
+}
+
+/** The core Paperclip action: runs one task via its agent on a Run click. */
+export async function runTaskAction(formData: FormData) {
+  const venture_id = requireVentureId(formData);
+  const task_id = Number(formData.get("task_id"));
+  if (!task_id) throw new Error("Invalid task id");
+
+  const supabase = await createClient();
+
+  const { data: task, error: taskError } = await supabase
+    .from("tasks")
+    .select("*, agents(*)")
+    .eq("id", task_id)
+    .single();
+  if (taskError) throw new Error(taskError.message);
+  const agent = task.agents as { id: number; system_prompt: string };
+
+  await executeTaskRun(supabase, venture_id, task, agent);
 
   revalidatePath(`/venture/${venture_id}/agents`);
   revalidatePath(`/venture/${venture_id}`); // budget burn synced above
+}
+
+// How many queued tasks one "Run all" click will chain through. Keeps a
+// whole chain inside the page's maxDuration and caps worst-case spend of
+// a single click; run the button again to continue a longer queue.
+const MAX_CHAIN_TASKS = 4;
+
+/** Autonomous chain v1: runs every queued (todo) task under a goal in
+ * sequence, feeding each completed task's result into the next task's
+ * context so later tasks build on earlier ones. Stops at MAX_CHAIN_TASKS
+ * or on the first failure. Still human-triggered — one click per chain. */
+export async function runGoalAction(formData: FormData) {
+  const venture_id = requireVentureId(formData);
+  const goal_id = Number(formData.get("goal_id"));
+  if (!goal_id) throw new Error("Invalid goal id");
+
+  const supabase = await createClient();
+  const { data: tasks, error } = await supabase
+    .from("tasks")
+    .select("*, agents(*)")
+    .eq("goal_id", goal_id)
+    .eq("status", "todo")
+    .order("id")
+    .limit(MAX_CHAIN_TASKS);
+  if (error) throw new Error(error.message);
+
+  let context = "";
+  for (const task of tasks ?? []) {
+    const agent = task.agents as { id: number; name: string; system_prompt: string };
+    const { ok, resultText } = await executeTaskRun(
+      supabase,
+      venture_id,
+      task,
+      agent,
+      context || undefined
+    );
+    if (!ok) break; // a failed step invalidates what later steps would build on
+
+    context += `${context ? "\n\n" : ""}[${task.title}]\n${resultText.slice(0, 2000)}`;
+  }
+
+  revalidatePath(`/venture/${venture_id}/agents`);
+  revalidatePath(`/venture/${venture_id}`);
+}
+
+// Cap on how many tasks one "Plan tasks" click may create.
+const MAX_PLANNED_TASKS = 4;
+
+/** Autonomous chain v1, planning half: asks Claude to break a goal into
+ * up to MAX_PLANNED_TASKS concrete tasks assigned to the venture's
+ * existing agents, and queues them as todo. Nothing runs until a human
+ * clicks Run — planning and execution stay separate, deliberately. */
+export async function planGoalTasksAction(formData: FormData) {
+  const venture_id = requireVentureId(formData);
+  const goal_id = Number(formData.get("goal_id"));
+  if (!goal_id) throw new Error("Invalid goal id");
+
+  const supabase = await createClient();
+  const [{ data: goal, error: goalError }, { data: agents, error: agentsError }] =
+    await Promise.all([
+      supabase.from("goals").select("*").eq("id", goal_id).single(),
+      supabase
+        .from("agents")
+        .select("id, name, role, system_prompt")
+        .eq("venture_id", venture_id)
+        .eq("status", "active"),
+    ]);
+  if (goalError) throw new Error(goalError.message);
+  if (agentsError) throw new Error(agentsError.message);
+  if (!agents?.length) throw new Error("Create an agent before planning tasks");
+
+  const agentDescriptions = agents
+    .map((a) => `- "${a.name}"${a.role ? ` (${a.role})` : ""}: ${a.system_prompt.slice(0, 200)}`)
+    .join("\n");
+
+  const client = createAnthropicClient();
+  const response = await client.messages.create({
+    model: AGENT_MODEL,
+    max_tokens: 1024,
+    system:
+      "You are the task planner for a venture studio's AI agent team. " +
+      "Break the given goal into concrete, independent research or analysis tasks, " +
+      "each assigned to the best-suited agent from the list. " +
+      `Respond with ONLY a JSON array of at most ${MAX_PLANNED_TASKS} objects, ` +
+      'each shaped {"agent": "<exact agent name>", "title": "<short task title>", ' +
+      '"instructions": "<specific instructions for the agent>"}. No other text.',
+    messages: [
+      {
+        role: "user",
+        content: `Goal: ${goal.title}${goal.description ? `\n${goal.description}` : ""}\n\nAvailable agents:\n${agentDescriptions}`,
+      },
+    ],
+  });
+
+  const text = response.content
+    .map((block) => (block.type === "text" ? block.text : ""))
+    .join("");
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start < 0 || end < start) throw new Error("Planner returned no task list");
+
+  let planned: { agent?: string; title?: string; instructions?: string }[];
+  try {
+    planned = JSON.parse(text.slice(start, end + 1));
+  } catch {
+    throw new Error("Planner returned malformed JSON");
+  }
+
+  const agentByName = new Map(agents.map((a) => [a.name, a]));
+  const rows = planned
+    .filter((p) => p.title && p.instructions)
+    .slice(0, MAX_PLANNED_TASKS)
+    .map((p) => ({
+      venture_id,
+      goal_id,
+      agent_id: (agentByName.get(p.agent ?? "") ?? agents[0]).id,
+      title: p.title!,
+      instructions: p.instructions!,
+    }));
+  if (!rows.length) throw new Error("Planner proposed no usable tasks");
+
+  const { error: insertError } = await supabase.from("tasks").insert(rows);
+  if (insertError) throw new Error(insertError.message);
+
+  revalidatePath(`/venture/${venture_id}/agents`);
 }
 
 /** Recovery for a task orphaned in "running" — e.g. the serverless

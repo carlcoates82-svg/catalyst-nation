@@ -38,7 +38,7 @@ export async function getBoardPackData(ventureId: number): Promise<BoardPackData
       .eq("venture_id", ventureId)
       .order("as_of", { ascending: false })
       .order("id", { ascending: false })
-      .limit(6),
+      .limit(12),
     supabase.from("risks").select("*").eq("venture_id", ventureId).eq("status", "open"),
     supabase
       .from("gates")

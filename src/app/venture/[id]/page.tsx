@@ -13,6 +13,7 @@ import {
   advanceStageAction,
 } from "@/lib/actions";
 import { inputClass, submitClass } from "@/lib/ui";
+import { KpiTrend } from "@/components/kpi-trend";
 
 export default async function VenturePage({
   params,
@@ -42,7 +43,7 @@ export default async function VenturePage({
         .eq("venture_id", ventureId)
         .order("as_of", { ascending: false })
         .order("id", { ascending: false })
-        .limit(3),
+        .limit(12),
       supabase
         .from("risks")
         .select("*")
@@ -63,6 +64,7 @@ export default async function VenturePage({
 
   const budgetList = (budgets ?? []) as Budget[];
   const kpiList = (kpis ?? []) as Kpi[];
+  const kpiAsc = [...kpiList].reverse(); // oldest → newest for the trend charts
   const riskList = (risks ?? []) as Risk[];
   const gateList = (gates ?? []) as Gate[];
   const validationList = (validation ?? []) as Validation[];
@@ -127,9 +129,21 @@ export default async function VenturePage({
       <Section title="Traction">
         {latestKpi ? (
           <div className="grid grid-cols-3 gap-4">
-            <Stat label="ARR" value={money(latestKpi.arr ?? 0)} />
-            <Stat label="Customers" value={String(latestKpi.customers ?? 0)} />
-            <Stat label="Pipeline" value={money(latestKpi.pipeline ?? 0)} />
+            <Stat
+              label="ARR"
+              value={money(latestKpi.arr ?? 0)}
+              trend={kpiAsc.map((k) => k.arr)}
+            />
+            <Stat
+              label="Customers"
+              value={String(latestKpi.customers ?? 0)}
+              trend={kpiAsc.map((k) => k.customers)}
+            />
+            <Stat
+              label="Pipeline"
+              value={money(latestKpi.pipeline ?? 0)}
+              trend={kpiAsc.map((k) => k.pipeline)}
+            />
           </div>
         ) : (
           <Empty text="No KPIs recorded yet." />
@@ -360,11 +374,24 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  trend,
+}: {
+  label: string;
+  value: string;
+  trend?: (number | null)[];
+}) {
   return (
     <div className="rounded-md border border-slate bg-charcoal px-4 py-3">
       <p className="text-xs text-ash">{label}</p>
       <p className="text-lg font-semibold text-off-white">{value}</p>
+      {trend && (
+        <div className="text-emerald">
+          <KpiTrend values={trend} />
+        </div>
+      )}
     </div>
   );
 }
