@@ -26,7 +26,7 @@ export type VentureStatus = (typeof VENTURE_STATUSES)[number];
 export const GATE_DECISIONS = ["proceed", "hold", "kill"] as const;
 export type GateDecision = (typeof GATE_DECISIONS)[number];
 
-export const BUDGET_PHASES = ["validation", "mvp", "pilot", "other"] as const;
+export const BUDGET_PHASES = ["validation", "mvp", "pilot", "agents", "other"] as const;
 export type BudgetPhase = (typeof BUDGET_PHASES)[number];
 
 export const RISK_LEVELS = ["low", "medium", "high"] as const;

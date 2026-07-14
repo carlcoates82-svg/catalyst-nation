@@ -245,13 +245,12 @@ export async function advanceStageAction(formData: FormData) {
 
 /** Mirrors Catalyst OS's recordSpend: auto-creates a zero-allocation budget
  * row for the phase if one doesn't exist yet, then adds to spent. */
-export async function recordSpendAction(formData: FormData) {
-  const venture_id = requireVentureId(formData);
-  const phase = String(formData.get("phase") ?? "other");
-  const amount = Number(formData.get("amount"));
-  if (!(amount > 0)) throw new Error("Amount must be positive");
-
-  const supabase = await createClient();
+async function addSpendToVentureBudget(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  venture_id: number,
+  phase: string,
+  amount: number
+) {
   const { data: existing, error: fetchError } = await supabase
     .from("budgets")
     .select("id, spent")
@@ -272,6 +271,16 @@ export async function recordSpendAction(formData: FormData) {
       .eq("id", existing.id);
     if (error) throw new Error(error.message);
   }
+}
+
+export async function recordSpendAction(formData: FormData) {
+  const venture_id = requireVentureId(formData);
+  const phase = String(formData.get("phase") ?? "other");
+  const amount = Number(formData.get("amount"));
+  if (!(amount > 0)) throw new Error("Amount must be positive");
+
+  const supabase = await createClient();
+  await addSpendToVentureBudget(supabase, venture_id, phase, amount);
 
   revalidatePath(`/venture/${venture_id}`);
 }
@@ -452,6 +461,13 @@ export async function runTaskAction(formData: FormData) {
       .from("agents")
       .update({ budget_spent: agent.budget_spent + cost })
       .eq("id", agent.id);
+
+    // Paperclip → Catalyst OS sync: the run's cost also lands on the
+    // venture's own budget burn (its 'agents' phase row), so the studio
+    // record stays current without anyone re-keying spend.
+    if (cost > 0) {
+      await addSpendToVentureBudget(supabase, venture_id, "agents", cost);
+    }
   } catch (err) {
     await supabase.from("tasks").update({ status: "failed" }).eq("id", task_id);
     await supabase.from("activity_log").insert({
@@ -464,6 +480,7 @@ export async function runTaskAction(formData: FormData) {
   }
 
   revalidatePath(`/venture/${venture_id}/agents`);
+  revalidatePath(`/venture/${venture_id}`); // budget burn synced above
 }
 
 /** Recovery for a task orphaned in "running" — e.g. the serverless
