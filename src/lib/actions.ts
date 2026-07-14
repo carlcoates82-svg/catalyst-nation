@@ -452,6 +452,26 @@ export async function runTaskAction(formData: FormData) {
   revalidatePath(`/venture/${venture_id}/agents`);
 }
 
+/** Recovery for a task orphaned in "running" — e.g. the serverless
+ * function got killed mid-run (timeout, crash) before runTaskAction's own
+ * try/catch could mark it done or failed. Only resets tasks that are
+ * actually stuck in "running"; a no-op otherwise. */
+export async function resetTaskAction(formData: FormData) {
+  const venture_id = requireVentureId(formData);
+  const task_id = Number(formData.get("task_id"));
+  if (!task_id) throw new Error("Invalid task id");
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("tasks")
+    .update({ status: "todo" })
+    .eq("id", task_id)
+    .eq("status", "running");
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/venture/${venture_id}/agents`);
+}
+
 /** The explicit "Paperclip → Catalyst OS" sync point: a human decides a
  * completed task's output is worth recording as validation evidence on
  * the venture record, rather than it happening automatically. */

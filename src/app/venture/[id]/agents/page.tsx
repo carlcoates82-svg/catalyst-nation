@@ -15,11 +15,16 @@ import {
   createGoalAction,
   createTaskAction,
   runTaskAction,
+  resetTaskAction,
   pushValidationFromTaskAction,
 } from "@/lib/actions";
 import { inputClass, submitClass } from "@/lib/ui";
 
-export const maxDuration = 60;
+// Bumped from 60s — a broad research task with several web searches can
+// take longer, and a killed function left a task permanently stuck in
+// "running" with no recovery UI (see resetTaskAction below for the fix to
+// that specific failure mode; this just makes it less likely to trigger).
+export const maxDuration = 300;
 
 export default async function AgentsPage({
   params,
@@ -209,6 +214,18 @@ export default async function AgentsPage({
                         <input type="hidden" name="task_id" value={t.id} />
                         <button type="submit" className={submitClass}>
                           {t.status === "done" ? "Run again" : "Run"}
+                        </button>
+                      </form>
+                    )}
+                    {t.status === "running" && (
+                      <form action={resetTaskAction}>
+                        <input type="hidden" name="venture_id" value={ventureId} />
+                        <input type="hidden" name="task_id" value={t.id} />
+                        <button
+                          type="submit"
+                          className="rounded-md border border-bronze px-4 py-2 text-sm text-bronze hover:bg-bronze/10"
+                        >
+                          Stuck? Reset
                         </button>
                       </form>
                     )}
