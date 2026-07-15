@@ -27,6 +27,17 @@ export default async function DashboardPage() {
           You&apos;re signed in, but not yet linked to a venture. Ask your Catalyst
           Nation contact to add you.
         </p>
+        <p className="mt-4 text-sm text-ash">
+          In the meantime,{" "}
+          <a
+            href="https://catalyst-nation-share.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-emerald hover:underline"
+          >
+            explore what Catalyst Nation is about →
+          </a>
+        </p>
       </Shell>
     );
   }

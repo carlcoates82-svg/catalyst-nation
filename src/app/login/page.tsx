@@ -76,6 +76,21 @@ export default function LoginPage() {
           </button>
           {errorMessage && <p className="text-sm text-red-400">{errorMessage}</p>}
         </form>
+
+        <div className="mt-10 rounded-lg border border-slate bg-charcoal px-5 py-4 text-center">
+          <p className="text-sm text-off-white">New to Catalyst Nation?</p>
+          <p className="mt-1 text-xs text-ash">
+            See how the studio builds AI-native companies with founder CEOs.
+          </p>
+          <a
+            href="https://catalyst-nation-share.vercel.app/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-3 inline-block rounded-md border border-emerald/40 px-4 py-2 text-sm text-emerald transition hover:bg-emerald/10"
+          >
+            Explore Catalyst Nation →
+          </a>
+        </div>
       </div>
     </main>
   );
