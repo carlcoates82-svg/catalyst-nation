@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async rewrites() {
+    return [
+      // Standalone concept page for Sarah Jane (static file in public/)
+      { source: "/sj-venture-studio", destination: "/sj-venture-studio.html" },
+    ];
+  },
 };
 
 export default nextConfig;
